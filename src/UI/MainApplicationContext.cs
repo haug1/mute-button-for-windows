@@ -1,87 +1,87 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using Accessibility;
+using MuteButton.Audio;
 
-namespace MuteButton {
+namespace MuteButton.UI {
   public class MainApplicationContext : ApplicationContext {
     private readonly NotifyIcon _notifyIcon;
+    private readonly Engine _engine;
     private ToolStripMenuItem _deviceMenu;
 
-    private static Icon CurrentIcon {
+    private Icon CurrentIcon {
       get {
-        var suffix = Engine.Instance.IsMicrophoneMuted switch {
+        var suffix = _engine.IsMicrophoneMuted switch {
           true => "off",
           false => "on",
           _ => "unknown"
         };
-        return new Icon($"Icons\\microphone-{suffix}.ico");
+        return new Icon($"Resources/Icons/microphone-{suffix}.ico");
       }
     }
 
-    void OnDeviceClicked(object sender, EventArgs e) {
+    void _onDeviceClicked(object sender, EventArgs e) {
       var deviceItem = (ToolStripMenuItem)sender;
-      Engine.Instance.SetDevice(deviceItem.Text);
-      UpdateIcon();
+      _engine.SetDevice(deviceItem.Text);
+      _updateIcon();
     }
 
-    void OnExitClicked(object sender, EventArgs e) {
+    void _onExitClicked(object sender, EventArgs e) {
       _notifyIcon.Visible = false;
       _notifyIcon.Dispose();
       Application.Exit();
     }
 
-    void OnTrayIconDoubleClicked(object sender, EventArgs e) {
-      Engine.Instance.ToggleMicrophone();
+    void _onTrayIconDoubleClicked(object sender, EventArgs e) {
+      _engine.ToggleMicrophone();
     }
 
-    void OnMicrophoneToggled(object sender, bool isMuted) {
-      UpdateIcon();
+    void _onMicrophoneToggled(object sender, bool isMuted) {
+      _updateIcon();
     }
 
     // Recreate every time context menu is opened so that the list is always up-to-date
-    void OnContextMenuStripOpening(object sender, EventArgs e) {
+    void _onContextMenuStripOpening(object sender, EventArgs e) {
       _notifyIcon.ContextMenuStrip.Items.Remove(_deviceMenu);
-      _deviceMenu = CreateDeviceMenu();
+      _deviceMenu = _createDeviceMenu();
       _notifyIcon.ContextMenuStrip.Items.Insert(0, _deviceMenu);
     }
 
-    void UpdateIcon() {
+    void _updateIcon() {
       _notifyIcon.Icon = CurrentIcon;
     }
 
     public MainApplicationContext(Engine engine) {
+      _engine = engine;
       // Init system tray icon
-      _deviceMenu = CreateDeviceMenu();
+      _deviceMenu = _createDeviceMenu();
       var contextMenuStrip = new ContextMenuStrip() {
         Items = {
             _deviceMenu,
             new ToolStripMenuItem(
               "Exit",
               null,
-              OnExitClicked
+              _onExitClicked
             )
           }
       };
-      contextMenuStrip.Opening += OnContextMenuStripOpening;
+      contextMenuStrip.Opening += _onContextMenuStripOpening;
       _notifyIcon = new NotifyIcon {
         Icon = CurrentIcon,
         Text = "Mute button",
         ContextMenuStrip = contextMenuStrip,
         Visible = true,
       };
-      engine.OnMicrophoneToggled += OnMicrophoneToggled;
-      _notifyIcon.DoubleClick += OnTrayIconDoubleClicked;
+      engine.OnMicrophoneToggled += _onMicrophoneToggled;
+      _notifyIcon.DoubleClick += _onTrayIconDoubleClicked;
     }
 
-    ToolStripMenuItem CreateDeviceMenu() {
+    ToolStripMenuItem _createDeviceMenu() {
       var parent = new ToolStripMenuItem("Select device..");
       var deviceItems = MicrophoneControl.ListFriendlyDeviceNames()
-        .Select(device => new ToolStripMenuItem(device, null, OnDeviceClicked) {
-          Checked = Engine.Instance.SelectedDevice == device
+        .Select(device => new ToolStripMenuItem(device, null, _onDeviceClicked) {
+          Checked = _engine.SelectedDevice == device
         });
       foreach (var item in deviceItems) {
         parent.DropDownItems.Add(item);

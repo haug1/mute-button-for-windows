@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading;
 using NAudio.CoreAudioApi;
 
-namespace MuteButton {
+namespace MuteButton.Audio {
 
   public delegate void OnMicrophoneToggledEvent(MMDevice microphone, bool isMuted);
 
@@ -44,7 +44,7 @@ namespace MuteButton {
     public void SetDevice(string deviceFriendlyName) {
       Dispose();
       _microphone = _enumerateMicrophoneDevices().First(device => device.DeviceFriendlyName == deviceFriendlyName);
-      _microphone.AudioEndpointVolume.OnVolumeNotification += OnVolumeNotification;
+      _microphone.AudioEndpointVolume.OnVolumeNotification += _onVolumeNotification;
     }
 
     public void ToggleMicrophone(bool? forceMute = null) {
@@ -55,7 +55,7 @@ namespace MuteButton {
     public void Dispose() {
       if (_microphone != null) {
         ToggleMicrophone(false);
-        _microphone.AudioEndpointVolume.OnVolumeNotification -= OnVolumeNotification;
+        _microphone.AudioEndpointVolume.OnVolumeNotification -= _onVolumeNotification;
         _microphone.Dispose();
       }
     }
@@ -65,15 +65,16 @@ namespace MuteButton {
       return enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
     }
 
-    void OnVolumeNotification(AudioVolumeNotificationData data) {
+    void _onVolumeNotification(AudioVolumeNotificationData data) {
       if (_lastMutedStatus != data.Muted) {
         _lastMutedStatus = data.Muted;
         Console.WriteLine($"Microphone toggled: IsMuted={data.Muted}");
         OnMicrophoneToggled.Invoke(_microphone, data.Muted);
         _soundCancellation?.Cancel();
         _soundCancellation = new CancellationTokenSource();
+        var micStatus = _microphone.AudioEndpointVolume.Mute ? "muted" : "activated";
         _ = SoundPlayer.PlaySound(
-          _microphone.AudioEndpointVolume.Mute ? "mute_button.microphone-muted-teamspeak.mp3" : "mute_button.microphone-activated-teamspeak.mp3",
+           $"MuteButton.Resources.Sounds.microphone-{micStatus}-teamspeak.mp3",
           _soundCancellation.Token
         );
       }

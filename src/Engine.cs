@@ -1,6 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Windows.Forms;
+using MuteButton.Audio;
+using MuteButton.Hooks;
 
 namespace MuteButton {
   public class Engine : IDisposable {
@@ -8,15 +9,6 @@ namespace MuteButton {
     private readonly MicrophoneControl _microphoneControl = new();
 
     public event OnMicrophoneToggledEvent OnMicrophoneToggled;
-
-    private static Engine _instance;
-
-    public static Engine Instance {
-      get {
-        _instance ??= new();
-        return _instance;
-      }
-    }
 
     public bool? IsMicrophoneMuted {
       get {
@@ -30,18 +22,9 @@ namespace MuteButton {
       }
     }
 
-    private Engine() {
-      _keyboardHook.OnKeyUp += OnKeyUp;
+    public Engine() {
+      _keyboardHook.OnKeyUp += _onKeyUp;
       _microphoneControl.OnMicrophoneToggled += (s, e) => OnMicrophoneToggled.Invoke(s, e);
-    }
-
-    private void OnKeyUp(Keys key) {
-      bool ctrlKeyPressed = (Control.ModifierKeys & Keys.Control) == Keys.Control;
-      bool altKeyPressed = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
-      if (ctrlKeyPressed && altKeyPressed)
-        if (key == Keys.M) {
-          ToggleMicrophone();
-        }
     }
 
     public void ToggleMicrophone() {
@@ -56,6 +39,15 @@ namespace MuteButton {
       _keyboardHook.Dispose();
       _microphoneControl.Dispose();
       Console.WriteLine("Disposed successfully.");
+    }
+
+    private void _onKeyUp(Keys key) {
+      bool ctrlKeyPressed = (Control.ModifierKeys & Keys.Control) == Keys.Control;
+      bool altKeyPressed = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
+      if (ctrlKeyPressed && altKeyPressed)
+        if (key == Keys.M) {
+          ToggleMicrophone();
+        }
     }
   }
 }

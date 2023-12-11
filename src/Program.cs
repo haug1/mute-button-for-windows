@@ -1,24 +1,27 @@
 using System;
 using System.Windows.Forms;
+using MuteButton.UI;
 
 namespace MuteButton {
   class Program {
     [STAThread]
     static void Main(string[] args) {
       try {
+        Engine engine = new();
         Console.CancelKeyPress += delegate {
           // Call dispose when CTRL+C on command line
-          Engine.Instance.Dispose();
+          engine.Dispose();
         };
         Application.SetHighDpiMode(HighDpiMode.SystemAware);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        var mainContext = new MainApplicationContext(Engine.Instance);
+        var mainContext = new MainApplicationContext(engine);
         Console.WriteLine("Initialization completed.");
         Application.Run(mainContext);
-        Engine.Instance.Dispose(); // Call dispose when exiting gracefully
+        engine.Dispose(); // Call dispose when exiting gracefully
       } catch (Exception ex) {
-        Console.WriteLine($"ERROR: Application exit ({ex.Message}): \n{ex.StackTrace}");
+        Console.WriteLine("ERROR: Application exit");
+        Console.WriteLine(ex);
       }
     }
   }
