@@ -1,41 +1,55 @@
 using System;
-using System.IO;
-using System.Reflection;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 using System.Windows.Forms;
-using NAudio.Wave;
 
-namespace mute_button {
-  class Engine : IDisposable {
-    private readonly KeyboardHook _keyboardHook;
-    private readonly MicrophoneControl _microphoneControl = new("Trust USB microphone");
+namespace MuteButton {
+  public class Engine : IDisposable {
+    private readonly KeyboardHook _keyboardHook = new();
+    private readonly MicrophoneControl _microphoneControl = new();
 
-    public Engine() {
-      _keyboardHook = new(OnKeyUp);
+    public event OnMicrophoneToggledEvent OnMicrophoneToggled;
+
+    private static Engine _instance;
+
+    public static Engine Instance {
+      get {
+        _instance ??= new();
+        return _instance;
+      }
     }
 
+    public bool? IsMicrophoneMuted {
+      get {
+        return _microphoneControl.IsMuted;
+      }
+    }
+
+    public string SelectedDevice {
+      get {
+        return _microphoneControl.SelectedDevice;
+      }
+    }
+
+    private Engine() {
+      _keyboardHook.OnKeyUp += OnKeyUp;
+      _microphoneControl.OnMicrophoneToggled += (s, e) => OnMicrophoneToggled.Invoke(s, e);
+    }
 
     private void OnKeyUp(Keys key) {
       bool ctrlKeyPressed = (Control.ModifierKeys & Keys.Control) == Keys.Control;
       bool altKeyPressed = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
-      if (ctrlKeyPressed && altKeyPressed && key == Keys.M) {
-        var isMuted = _microphoneControl.ToggleMicrophone();
-        _ = playSound(isMuted);
-      }
+      if (ctrlKeyPressed && altKeyPressed)
+        if (key == Keys.M) {
+          ToggleMicrophone();
+        }
     }
 
-    private static async Task playSound(bool micMuted) {
-      string resourceName = micMuted ? "mute_button.microphone-muted-teamspeak.mp3" : "mute_button.microphone-activated-teamspeak.mp3";
-      Assembly assembly = Assembly.GetExecutingAssembly();
-      using Stream resourceStream = assembly.GetManifestResourceStream(resourceName);
-      using var waveOut = new WaveOutEvent();
-      using var reader = new Mp3FileReader(resourceStream);
-      waveOut.Init(reader);
-      waveOut.Volume = 0.05f;
-      waveOut.Play();
-      while (waveOut.PlaybackState == PlaybackState.Playing) {
-        await Task.Delay(100);
-      }
+    public void ToggleMicrophone() {
+      _microphoneControl.ToggleMicrophone();
+    }
+
+    public void SetDevice(string device) {
+      _microphoneControl.SetDevice(device);
     }
 
     public void Dispose() {

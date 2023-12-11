@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace mute_button {
+namespace MuteButton {
   class KeyboardHook : IDisposable {
     private const int WH_KEYBOARD_LL = 13;
     private const int WM_KEYUP = 0x0101;
@@ -35,20 +35,18 @@ namespace mute_button {
       }
     }
 
-    public delegate void OnKeyUp(Keys key);
+    public delegate void OnKeyUpEvent(Keys key);
+    public event OnKeyUpEvent OnKeyUp;
 
-    private readonly OnKeyUp _onKeyUp;
-
-    public KeyboardHook(OnKeyUp onKeyUp) {
+    public KeyboardHook() {
       _proc = HookCallback;
       _hookID = SetHook(_proc);
-      _onKeyUp = onKeyUp;
     }
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam) {
       if (nCode >= 0 && wParam == (IntPtr)WM_KEYUP) {
         Keys key = (Keys)Marshal.ReadInt32(lParam);
-        _onKeyUp(key);
+        OnKeyUp.Invoke(key);
       }
       return CallNextHookEx(_hookID, nCode, wParam, lParam);
     }

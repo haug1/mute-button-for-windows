@@ -8,7 +8,7 @@
     <PublishSingleFile>true</PublishSingleFile>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
-
+  
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <EmbeddedResource Include="microphone-activated-teamspeak.mp3" />

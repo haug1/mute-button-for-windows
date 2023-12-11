@@ -1,24 +1,25 @@
 using System;
-using System.IO;
-using System.Media;
-using System.Reflection;
 using System.Windows.Forms;
 
-namespace mute_button {
+namespace MuteButton {
   class Program {
-
     [STAThread]
     static void Main(string[] args) {
-      var engine = new Engine();
-      Console.WriteLine("Initialization completed");
-      Console.CancelKeyPress += delegate {
-        // Call dispose when CTRL+C on command line
-        engine.Dispose();
-      };
-      Application.EnableVisualStyles();
-      Application.SetCompatibleTextRenderingDefault(false);
-      Application.Run();
-      engine.Dispose(); // Call dispose when exiting gracefully
+      try {
+        Console.CancelKeyPress += delegate {
+          // Call dispose when CTRL+C on command line
+          Engine.Instance.Dispose();
+        };
+        Application.SetHighDpiMode(HighDpiMode.SystemAware);
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        var mainContext = new MainApplicationContext(Engine.Instance);
+        Console.WriteLine("Initialization completed.");
+        Application.Run(mainContext);
+        Engine.Instance.Dispose(); // Call dispose when exiting gracefully
+      } catch (Exception ex) {
+        Console.WriteLine($"ERROR: Application exit ({ex.Message}): \n{ex.StackTrace}");
+      }
     }
   }
 }

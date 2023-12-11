@@ -1,7 +1,5 @@
-# mute-button
+# MuteButton
 
 # Planned features
 
-- config file for setting microphone name
-- system tray icon
-- graceful exit via system tray icon
+- persistent setting for selected microphone

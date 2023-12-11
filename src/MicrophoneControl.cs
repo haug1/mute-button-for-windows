@@ -1,45 +1,82 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+using System.Threading;
 using NAudio.CoreAudioApi;
 
-namespace mute_button {
+namespace MuteButton {
+
+  public delegate void OnMicrophoneToggledEvent(MMDevice microphone, bool isMuted);
+
   class MicrophoneControl : IDisposable {
-    private readonly MMDevice _microphone;
+    private MMDevice _microphone = null;
+    private bool? _lastMutedStatus = null;
+    private CancellationTokenSource _soundCancellation;
 
-    public MicrophoneControl(string micName) {
-      using (MMDeviceEnumerator enumerator = new()) {
-        MMDeviceCollection devices = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
+    public event OnMicrophoneToggledEvent OnMicrophoneToggled;
 
-        for (int i = 0; i < devices.Count; i++) {
-          var device = devices[i];
-          Console.WriteLine($"Device {i}");
-          Console.WriteLine($"DeviceFriendlyName: {device.DeviceFriendlyName}");
-          Console.WriteLine($"FriendlyName: {device.FriendlyName}");
-          Console.WriteLine();
-
-          if (device.DeviceFriendlyName.Contains(micName)) {
-            Console.WriteLine($"Selected device: {device.DeviceFriendlyName} {{{device.ID}}}");
-            _microphone = device;
-            break;
-          }
-        }
+    public bool? IsMuted {
+      get {
+        return _microphone?.AudioEndpointVolume.Mute;
       }
+    }
 
-      // We must interact with the device for the handle to register. 
-      LogMicrophoneStatus();
+    public string SelectedDevice {
+      get {
+        return _microphone?.DeviceFriendlyName;
+      }
+    }
+
+    public MicrophoneControl() {
+      try {
+        var defaultDevice = ListFriendlyDeviceNames().Last();
+        SetDevice(defaultDevice);
+      } catch {
+        Console.WriteLine("WARN: Failed to set microphone on startup.");
+      }
+    }
+
+    public static IEnumerable<string> ListFriendlyDeviceNames() {
+      return _enumerateMicrophoneDevices().Select(device => device.DeviceFriendlyName).ToImmutableList();
+    }
+
+    public void SetDevice(string deviceFriendlyName) {
+      Dispose();
+      _microphone = _enumerateMicrophoneDevices().First(device => device.DeviceFriendlyName == deviceFriendlyName);
+      _microphone.AudioEndpointVolume.OnVolumeNotification += OnVolumeNotification;
+    }
+
+    public void ToggleMicrophone(bool? forceMute = null) {
+      if (_microphone != null)
+        _microphone.AudioEndpointVolume.Mute = forceMute.HasValue ? forceMute.Value : !_microphone.AudioEndpointVolume.Mute;
     }
 
     public void Dispose() {
-      ToggleMicrophone(false);
+      if (_microphone != null) {
+        ToggleMicrophone(false);
+        _microphone.AudioEndpointVolume.OnVolumeNotification -= OnVolumeNotification;
+        _microphone.Dispose();
+      }
     }
 
-    public bool ToggleMicrophone(bool? forceMute = null) {
-      _microphone.AudioEndpointVolume.Mute = forceMute.HasValue ? forceMute.Value : !_microphone.AudioEndpointVolume.Mute;
-      LogMicrophoneStatus();
-      return _microphone.AudioEndpointVolume.Mute;
+    private static MMDeviceCollection _enumerateMicrophoneDevices() {
+      using MMDeviceEnumerator enumerator = new();
+      return enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
     }
 
-    private void LogMicrophoneStatus() {
-      Console.WriteLine($"Microphone is muted: {_microphone.AudioEndpointVolume.Mute}");
+    void OnVolumeNotification(AudioVolumeNotificationData data) {
+      if (_lastMutedStatus != data.Muted) {
+        _lastMutedStatus = data.Muted;
+        Console.WriteLine($"Microphone toggled: IsMuted={data.Muted}");
+        OnMicrophoneToggled.Invoke(_microphone, data.Muted);
+        _soundCancellation?.Cancel();
+        _soundCancellation = new CancellationTokenSource();
+        _ = SoundPlayer.PlaySound(
+          _microphone.AudioEndpointVolume.Mute ? "mute_button.microphone-muted-teamspeak.mp3" : "mute_button.microphone-activated-teamspeak.mp3",
+          _soundCancellation.Token
+        );
+      }
     }
   }
 }
